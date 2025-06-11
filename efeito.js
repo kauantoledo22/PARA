@@ -1,20 +1,29 @@
-var canvas = document.getElementById("canvas")
+var canvas = document.getElementById("canvas");
 
-canvas.width = window.innerWidth; 
+// Define a largura e altura do canvas com base no tamanho da janela
+canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-var gl = canvas.getContext("webgl");
-if (!gl){
-    console.error('Seu navegador não suporta WebGL.');
+// Inicializa o contexto WebGL
+var gl = canvas.getContext('webgl');
+if(!gl){
+  console.error("Não foi possível inicializar o WebGL.");
 }
 
+// Tempo
 var time = 0.0;
 
-var vertexsource = `atribut vec2 position; 
-                    void main(){
-                        gl_Position = vec4(position, 0.0, 1.0);
-                    }
+//************** Fontes dos shaders **************
+
+// Fonte do vértice (vertex) shader
+var vertexSource = `
+attribute vec2 position;
+void main() {
+  gl_Position = vec4(position, 0.0, 1.0);
+}
 `;
+
+// Fonte do fragmento (fragment) shader
 var fragmentSource = `
 precision highp float;
 
@@ -164,53 +173,102 @@ void main(){
 }
 `;
 
-window.addEventListener('resize', onWindowResize, false);
+//************** Funções utilitárias **************
 
-function onWindowResize() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-
-}
-
+// Redimensiona o canvas quando a janela é redimensionada
 window.addEventListener('resize', onWindowResize, false);
 
 function onWindowResize(){
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-
-    gl.viewport(0, 0, canvas.width, canvas.height);
-    gl.uniform1f(width, window.innerWidth);
-    gl.uniform1f(height, window.innerHeight);
+  // Define a largura e altura do canvas com base no tamanho da janela
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
 }
 
-function compileShader(shaderSource, type){
-    var shader = gl.createShader(type);
-    gl.shaderSource(shader, shaderSource);
-    gl.compileShader(shader);
+//************** Funções utilitárias **************
 
-    if(!gl.getShaderParameter(shader, gl.COMPILE_STATUS)){
-        throw "Falha na complação do shader: " + gl.getShaderInfoLog(shader);} 
-        return shader;
+// Redimensiona o canvas quando a janela é redimensionada
+window.addEventListener('resize', onWindowResize, false);
+
+function onWindowResize(){
+  // Define a largura e altura do canvas com base no tamanho da janela
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+  // Define a visualização (viewport) do WebGL para abranger todo o canvas
+  gl.viewport(0, 0, canvas.width, canvas.height);
+  // Atualiza os uniformes de largura e altura no programa do shader
+  gl.uniform1f(widthHandle, window.innerWidth);
+  gl.uniform1f(heightHandle, window.innerHeight);
 }
 
-function getAtribLocation(program, name){
-
-    var attribLocation = gl.getAttribLocation(program, name);
-
-    if(attribLocation === -1){throw "Não foi possivel encontrar o atributo'" + name + "'.";}
-    
-    return attribLocation;
+// Compila o shader e combina com o código-fonte
+function compileShader(shaderSource, shaderType){
+  var shader = gl.createShader(shaderType);
+  gl.shaderSource(shader, shaderSource);
+  gl.compileShader(shader);
+  if(!gl.getShaderParameter(shader, gl.COMPILE_STATUS)){
+    throw "Falha na compilação do shader: " + gl.getShaderInfoLog(shader);
+  }
+  return shader;
 }
 
-function getUniformLocation(program, name){
-
-    var attributeLocation = gl.getUniformLocation(program, name);
-
-    if(attributeLocation === -1){throw "Não foi possivel encontrar o atributo'" + name + "'.";}
-    
-    return attributeLocation;
+// Função utilitária para verificar se um atributo está presente no programa
+function getAttribLocation(program, name) {
+  var attributeLocation = gl.getAttribLocation(program, name);
+  if (attributeLocation === -1) {
+    throw 'Não foi possível encontrar o atributo ' + name + '.';
+  }
+  return attributeLocation;
 }
 
+// Função utilitária para verificar se um uniforme está presente no programa
+function getUniformLocation(program, name) {
+  var attributeLocation = gl.getUniformLocation(program, name);
+  if (attributeLocation === -1) {
+    throw 'Não foi possível encontrar o uniforme ' + name + '.';
+  }
+  return attributeLocation;
+}
+
+//************** Criação dos shaders **************
+
+// Cria os shaders de vértice e fragmento
+var vertexShader = compileShader(vertexSource, gl.VERTEX_SHADER);
+var fragmentShader = compileShader(fragmentSource, gl.FRAGMENT_SHADER);
+
+// Cria o programa de shaders
+var program = gl.createProgram();
+gl.attachShader(program, vertexShader);
+gl.attachShader(program, fragmentShader);
+gl.linkProgram(program);
+
+gl.useProgram(program);
+
+// Configura um retângulo que cobre todo o canvas
+var vertexData = new Float32Array([
+  -1.0,  1.0,   // canto superior esquerdo
+  -1.0, -1.0,   // canto inferior esquerdo
+   1.0,  1.0,   // canto superior direito
+   1.0, -1.0,   // canto inferior direito
+]);
+
+// Cria o buffer de vértices
+var vertexDataBuffer = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, vertexDataBuffer);
+gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.STATIC_DRAW);
+
+// Define o layout dos dados no buffer de vértices
+var positionHandle = getAttribLocation(program, 'position');
+
+gl.enableVertexAttribArray(positionHandle);
+gl.vertexAttribPointer(positionHandle,
+  2,        // posição é um vec2 (2 valores por componente)
+  gl.FLOAT, // cada componente é um float
+  false,    // não normaliza os valores
+  2 * 4,    // dois componentes float de 4 bytes por vértice (float de 32 bits tem 4 bytes)
+  0         // quantos bytes dentro do buffer começar
+);
+
+// Define os uniformes
 var timeHandle = getUniformLocation(program, 'time');
 var widthHandle = getUniformLocation(program, 'width');
 var heightHandle = getUniformLocation(program, 'height');
@@ -222,11 +280,14 @@ var lastFrame = Date.now();
 var thisFrame;
 
 function draw(){
+  // Atualiza o tempo
   thisFrame = Date.now();
   time += (thisFrame - lastFrame)/1000;
   lastFrame = thisFrame;
 
+  // Envia os uniformes para o programa
   gl.uniform1f(timeHandle, time);
+  // Desenha uma tira de triângulos conectando os vértices 0-4
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
   requestAnimationFrame(draw);
